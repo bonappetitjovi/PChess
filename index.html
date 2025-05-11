@@ -19,30 +19,18 @@
             background-color: #f0f0f0;
             margin: 0;
             padding: 20px;
-            /* Prevent pull-to-refresh and overscroll bouncing effects */
-            overscroll-behavior: none;
-            overflow: hidden;
-            position: fixed;
-            width: 100%;
-            height: 100%;
         }
         
         .container {
             max-width: 600px;
             margin: 0 auto;
             text-align: center;
-            /* Allow scrolling within container if needed */
-            overflow-y: auto;
-            height: 100%;
-            padding-bottom: 20px;
         }
         
         #board {
             width: 400px;
-            max-width: 95vw; /* Make board responsive */
             margin: 20px auto;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-            touch-action: none; /* Disable browser handling of all touch gestures */
         }
         
         .status {
@@ -67,11 +55,28 @@
         button:hover {
             background-color: #45a049;
         }
+        
+        .toggle-mode {
+            margin-bottom: 15px;
+        }
+        
+        .square-selected {
+            background-color: rgba(255, 255, 0, 0.5) !important;
+        }
+        
+        .square-valid-move {
+            background-color: rgba(0, 255, 0, 0.3) !important;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>PChess</h1>
+        <div class="toggle-mode">
+            <label>
+                <input type="checkbox" id="tapModeToggle"> Enable Tap Mode for Mobile
+            </label>
+        </div>
         <div class="status" id="status">Daywalkers to move</div>
         <div id="board"></div>
         <div class="controls">
@@ -84,6 +89,9 @@
         // Initialize the game
         let board = null;
         let game = new Chess();
+        let tapMode = false;
+        let selectedSquare = null;
+        let $board = $('#board');
         
         // Update the board position
         function updateStatus() {
@@ -105,8 +113,8 @@
         
         // Handle piece movement
         function onDragStart(source, piece) {
-            // Don't allow moving pieces if the game is over
-            if (game.game_over()) return false;
+            // Don't allow moving pieces if the game is over or in tap mode
+            if (game.game_over() || tapMode) return false;
             
             // Only allow the correct color to move
             if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
@@ -134,6 +142,109 @@
             board.position(game.fen());
         }
         
+        // Handle tap mode square selection
+        function onSquareClick(square) {
+            if (!tapMode || game.game_over()) return;
+            
+            // Clear previous highlights
+            clearHighlights();
+            
+            // If no square is selected yet, select this one if it has a piece of the current turn
+            if (!selectedSquare) {
+                const piece = board.position()[square];
+                if (!piece) return; // No piece on this square
+                
+                const pieceColor = piece.charAt(0);
+                if ((game.turn() === 'w' && pieceColor === 'b') || 
+                    (game.turn() === 'b' && pieceColor === 'w')) {
+                    return; // Wrong color piece
+                }
+                
+                // Select the square
+                selectedSquare = square;
+                highlightSquare(square);
+                
+                // Highlight valid moves
+                highlightValidMoves(square);
+            } else {
+                // A square was already selected, try to move
+                const move = game.move({
+                    from: selectedSquare,
+                    to: square,
+                    promotion: 'q' // Always promote to queen for simplicity
+                });
+                
+                if (move !== null) {
+                    // Valid move
+                    board.position(game.fen());
+                    updateStatus();
+                } else if (board.position()[square]) {
+                    // If clicked on another piece of the same color, select it instead
+                    const piece = board.position()[square];
+                    const pieceColor = piece.charAt(0);
+                    
+                    if ((game.turn() === 'w' && pieceColor === 'w') || 
+                        (game.turn() === 'b' && pieceColor === 'b')) {
+                        selectedSquare = square;
+                        highlightSquare(square);
+                        highlightValidMoves(square);
+                        return;
+                    }
+                }
+                
+                // Reset selection
+                selectedSquare = null;
+            }
+        }
+        
+        // Highlight a square
+        function highlightSquare(square) {
+            $('.square-' + square).addClass('square-selected');
+        }
+        
+        // Highlight valid moves from a square
+        function highlightValidMoves(square) {
+            // Get list of valid moves for this piece
+            const moves = game.moves({
+                square: square,
+                verbose: true
+            });
+            
+            // Highlight each valid target square
+            moves.forEach(move => {
+                $('.square-' + move.to).addClass('square-valid-move');
+            });
+        }
+        
+        // Clear all highlights
+        function clearHighlights() {
+            $('.square-55d63').removeClass('square-selected square-valid-move');
+        }
+        
+        // Toggle between tap and drag modes
+        function toggleMode() {
+            tapMode = $('#tapModeToggle').is(':checked');
+            
+            if (tapMode) {
+                // Enable tap mode
+                selectedSquare = null;
+                clearHighlights();
+                
+                // Add click event listeners to all squares
+                $('.square-55d63').on('click', function() {
+                    const square = $(this).data('square') || $(this).attr('data-square');
+                    onSquareClick(square);
+                });
+            } else {
+                // Disable tap mode
+                selectedSquare = null;
+                clearHighlights();
+                
+                // Remove click event listeners
+                $('.square-55d63').off('click');
+            }
+        }
+        
         // Board configuration
         const config = {
             draggable: true,
@@ -151,26 +262,34 @@
         $('#startBtn').on('click', function() {
             game.reset();
             board.position('start');
+            selectedSquare = null;
+            clearHighlights();
             updateStatus();
         });
         
         $('#undoBtn').on('click', function() {
             game.undo();
             board.position(game.fen());
+            selectedSquare = null;
+            clearHighlights();
             updateStatus();
         });
         
-        // Prevent default touch behavior on the chess board
-        document.getElementById('board').addEventListener('touchmove', function(e) {
-            e.preventDefault();
-        }, { passive: false });
+        // Toggle mode event listener
+        $('#tapModeToggle').on('change', toggleMode);
         
-        // Prevent pull-to-refresh on the entire document
-        document.addEventListener('touchmove', function(e) {
-            if(e.target.closest('#board')) {
-                e.preventDefault();
+        // Check if device is mobile (simplified detection)
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+        
+        // Auto-enable tap mode on mobile devices
+        $(document).ready(function() {
+            if (isMobileDevice()) {
+                $('#tapModeToggle').prop('checked', true);
+                toggleMode();
             }
-        }, { passive: false });
+        });
     </script>
 </body>
 </html>
