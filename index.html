@@ -19,18 +19,30 @@
             background-color: #f0f0f0;
             margin: 0;
             padding: 20px;
+            /* Prevent pull-to-refresh and overscroll bouncing effects */
+            overscroll-behavior: none;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
         }
         
         .container {
             max-width: 600px;
             margin: 0 auto;
             text-align: center;
+            /* Allow scrolling within container if needed */
+            overflow-y: auto;
+            height: 100%;
+            padding-bottom: 20px;
         }
         
         #board {
             width: 400px;
+            max-width: 95vw; /* Make board responsive */
             margin: 20px auto;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            touch-action: none; /* Disable browser handling of all touch gestures */
         }
         
         .status {
@@ -63,7 +75,7 @@
         <div class="status" id="status">Daywalkers to move</div>
         <div id="board"></div>
         <div class="controls">
-            <button id="startBtn">Start New Battle</button>
+            <button id="startBtn">Start New Battle💃🕺</button>
             <button id="undoBtn">🗡️⏳</button>
         </div>
     </div>
@@ -147,6 +159,18 @@
             board.position(game.fen());
             updateStatus();
         });
+        
+        // Prevent default touch behavior on the chess board
+        document.getElementById('board').addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Prevent pull-to-refresh on the entire document
+        document.addEventListener('touchmove', function(e) {
+            if(e.target.closest('#board')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
     </script>
 </body>
 </html>
