@@ -60,7 +60,7 @@
 <body>
     <div class="container">
         <h1>PChess</h1>
-        <div class="status" id="status">White to move</div>
+        <div class="status" id="status">Daywalkers to move</div>
         <div id="board"></div>
         <div class="controls">
             <button id="startBtn">Start New Battle</button>
@@ -78,13 +78,13 @@
             let status = '';
             
             if (game.in_checkmate()) {
-                status = 'Game over, ' + (game.turn() === 'w' ? 'black' : 'white') + ' wins by checkmate';
+                status = 'Game over, ' + (game.turn() === 'w' ? 'Nightdancers' : 'Daywalkers') + ' wins by checkmate';
             } else if (game.in_draw()) {
                 status = 'Game over, drawn position';
             } else {
-                status = (game.turn() === 'w' ? 'White' : 'Black') + ' to move';
+                status = (game.turn() === 'w' ? 'Daywalkers' : 'Nightdancers') + ' to move';
                 if (game.in_check()) {
-                    status += ', ' + (game.turn() === 'w' ? 'White' : 'Black') + ' is in check';
+                    status += ', ' + (game.turn() === 'w' ? 'Daywalkers' : 'Nightdancers') + ' is in check';
                 }
             }
             
